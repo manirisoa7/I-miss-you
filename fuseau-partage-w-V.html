@@ -142,6 +142,31 @@
   }
   .save-indicator.show{ opacity: 0.8; }
 
+  .email-btn{
+    display: block;
+    margin: 14px auto 0;
+    background: transparent;
+    border: 1px solid rgba(245,217,139,0.35);
+    color: var(--gold);
+    padding: 10px 22px;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 300;
+    border-radius: 24px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.3s ease, border-color 0.3s ease;
+  }
+  .email-btn:hover{
+    background: rgba(245,217,139,0.08);
+    border-color: rgba(245,217,139,0.6);
+  }
+  .email-btn:disabled{
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
   .flame{
     width: 10px;
     height: 10px;
@@ -163,6 +188,7 @@
 </style>
 </head>
 <body>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 
 <div class="wrap">
   <h1>Le Fuseau Partagé</h1>
@@ -191,12 +217,27 @@
     <div class="message-hint">Ce que je ne peux pas te dire maintenant</div>
     <textarea id="message" placeholder="Écris ici, pour toi, pour elle ou lui, pour plus tard…"></textarea>
     <div class="save-indicator" id="save-indicator">enregistré ✓</div>
+    <button id="email-btn" class="email-btn">M'envoyer ce texte par email</button>
     <div class="flame" id="flame"></div>
   </div>
 </div>
 
 <script>
 (function(){
+  // ---- Configuration EmailJS (à remplir — voir instructions) ----
+  const EMAILJS_PUBLIC_KEY  = '9wui3MF_hj8_Vc02-';
+  const EMAILJS_SERVICE_ID  = 'service_clo86g2';
+  const EMAILJS_TEMPLATE_ID = 'template_0ys2jb8';
+  const DEST_EMAIL = 'jemihir07@gmail.com';
+
+  let emailjsReady = false;
+  try{
+    if(window.emailjs && EMAILJS_PUBLIC_KEY !== 'YOUR_PUBLIC_KEY'){
+      emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+      emailjsReady = true;
+    }
+  } catch(e){}
+
   const OFFSET_HOURS = 7; // "eux" sont 7h en retard sur "moi"
   const AWAKE_START = 8 * 60;   // 08:00
   const AWAKE_END   = 24 * 60;  // 24:00 (minuit)
@@ -351,6 +392,31 @@
   } catch(e){}
 
   let saveTimeout = null;
+  let autoSendTimeout = null;
+  let lastSentValue = '';
+
+  function sendViaEmailJS(text, silent){
+    if(!emailjsReady || !text) return;
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' });
+    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email: DEST_EMAIL,
+      subject: `Mes pensées — ${dateStr}`,
+      message: text,
+      date: dateStr
+    }).then(() => {
+      lastSentValue = text;
+      if(!silent){
+        saveIndicator.textContent = 'envoyé automatiquement ✓';
+        saveIndicator.classList.add('show');
+        setTimeout(() => {
+          saveIndicator.classList.remove('show');
+          saveIndicator.textContent = 'enregistré ✓';
+        }, 2200);
+      }
+    }).catch(() => {});
+  }
+
   textarea.addEventListener('input', () => {
     if(saveTimeout) clearTimeout(saveTimeout);
     saveTimeout = setTimeout(() => {
@@ -359,6 +425,36 @@
       flame.classList.toggle('lit', textarea.value.trim().length > 0);
       setTimeout(() => saveIndicator.classList.remove('show'), 1800);
     }, 500);
+
+    // Envoi automatique 4s après que tu arrêtes d'écrire
+    if(autoSendTimeout) clearTimeout(autoSendTimeout);
+    autoSendTimeout = setTimeout(() => {
+      const text = textarea.value.trim();
+      if(text && text !== lastSentValue){
+        sendViaEmailJS(text, false);
+      }
+    }, 4000);
+  });
+
+  // ---- envoi par email à soi-même (bouton manuel, toujours disponible) ----
+  const emailBtn = document.getElementById('email-btn');
+  emailBtn.addEventListener('click', () => {
+    const text = textarea.value.trim();
+    if(!text){
+      emailBtn.textContent = 'Écris quelque chose d\'abord…';
+      setTimeout(() => { emailBtn.textContent = "M'envoyer ce texte par email"; }, 2000);
+      return;
+    }
+    if(emailjsReady){
+      sendViaEmailJS(text, false);
+      return;
+    }
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' });
+    const subject = `Mes pensées — ${dateStr}`;
+    const body = text + `\n\n— écrit le ${dateStr} sur Le Fuseau Partagé`;
+    const mailtoLink = `mailto:${DEST_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailtoLink;
   });
 
 })();
