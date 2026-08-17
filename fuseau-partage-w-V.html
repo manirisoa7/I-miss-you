@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Le Fuseau Partagé</title>
+<style>
+  :root{
+    --bg-top: #0b0e23;
+    --bg-bottom: #05060f;
+    --ring-track: rgba(255,255,255,0.08);
+    --ring-own: rgba(120,160,255,0.35);
+    --gold: #f5d98b;
+    --gold-glow: rgba(245,217,139,0.55);
+    --text-strong: rgba(255,255,255,0.92);
+    --text-soft: rgba(255,255,255,0.55);
+  }
+
+  *{ box-sizing: border-box; }
+
+  html, body{
+    margin:0; padding:0;
+    width:100%; min-height:100%;
+    background: radial-gradient(ellipse at 50% 20%, var(--bg-top), var(--bg-bottom));
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    color: var(--text-strong);
+  }
+
+  .wrap{
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 6vh 20px 8vh;
+    text-align: center;
+  }
+
+  h1{
+    font-size: clamp(18px, 4vw, 26px);
+    font-weight: 300;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin: 0 0 6px;
+    color: var(--gold);
+    text-shadow: 0 0 16px var(--gold-glow);
+  }
+  .subtitle{
+    font-size: clamp(11px, 2vw, 13px);
+    color: var(--text-soft);
+    letter-spacing: 0.08em;
+    margin-bottom: 5vh;
+    font-weight: 300;
+  }
+
+  .clocks{
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 40px;
+    flex-wrap: wrap;
+    margin-bottom: 4vh;
+  }
+  .clock-block{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .clock-label{
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+    margin-bottom: 10px;
+    font-weight: 300;
+  }
+  .clock-svg{
+    width: 190px;
+    height: 190px;
+  }
+  .ring-track{ fill: none; stroke: var(--ring-track); stroke-width: 10; }
+  .ring-own{ fill: none; stroke: var(--ring-own); stroke-width: 10; stroke-linecap: round; }
+  .ring-overlap{ fill: none; stroke: var(--gold); stroke-width: 10; stroke-linecap: round;
+                 filter: drop-shadow(0 0 5px var(--gold-glow)); }
+  .now-dot{ fill: #fff; filter: drop-shadow(0 0 4px #fff); }
+  .digital{
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 22px;
+    font-weight: 300;
+    letter-spacing: 0.05em;
+    pointer-events: none;
+  }
+  .clock-svg-wrap{ position: relative; }
+
+  .status{
+    font-size: clamp(13px, 2.4vw, 15px);
+    color: var(--text-strong);
+    font-weight: 300;
+    margin-bottom: 6vh;
+    min-height: 20px;
+  }
+  .status .gold{ color: var(--gold); }
+
+  .message-area{
+    margin-top: 2vh;
+  }
+  .message-hint{
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+    margin-bottom: 12px;
+    font-weight: 300;
+  }
+  textarea{
+    width: 100%;
+    max-width: 520px;
+    min-height: 130px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 12px;
+    color: var(--text-strong);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 300;
+    line-height: 1.6;
+    padding: 16px;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.3s ease;
+  }
+  textarea:focus{ border-color: rgba(245,217,139,0.5); }
+  textarea::placeholder{ color: rgba(255,255,255,0.3); }
+
+  .save-indicator{
+    font-size: 11px;
+    color: var(--gold);
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    margin-top: 8px;
+    letter-spacing: 0.1em;
+  }
+  .save-indicator.show{ opacity: 0.8; }
+
+  .flame{
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--gold);
+    margin: 30px auto 0;
+    opacity: 0.15;
+    box-shadow: 0 0 8px 2px var(--gold-glow);
+    transition: opacity 1.2s ease, box-shadow 1.2s ease;
+  }
+  .flame.lit{
+    opacity: 1;
+    animation: flicker 2.4s ease-in-out infinite;
+  }
+  @keyframes flicker{
+    0%, 100%{ box-shadow: 0 0 8px 2px var(--gold-glow); }
+    50%{ box-shadow: 0 0 16px 5px var(--gold-glow); }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <h1>Le Fuseau Partagé</h1>
+  <div class="subtitle">7 heures nous séparent. Pas nos pensées.</div>
+
+  <div class="clocks">
+    <div class="clock-block">
+      <div class="clock-label">Moi</div>
+      <div class="clock-svg-wrap">
+        <svg class="clock-svg" id="ring-me" viewBox="0 0 200 200"></svg>
+        <div class="digital" id="digital-me">--:--</div>
+      </div>
+    </div>
+    <div class="clock-block">
+      <div class="clock-label">Toi</div>
+      <div class="clock-svg-wrap">
+        <svg class="clock-svg" id="ring-them" viewBox="0 0 200 200"></svg>
+        <div class="digital" id="digital-them">--:--</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="status" id="status">calcul de la fenêtre commune…</div>
+
+  <div class="message-area">
+    <div class="message-hint">Ce que je ne peux pas te dire maintenant</div>
+    <textarea id="message" placeholder="Écris ici, pour toi, pour elle ou lui, pour plus tard…"></textarea>
+    <div class="save-indicator" id="save-indicator">enregistré ✓</div>
+    <div class="flame" id="flame"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const OFFSET_HOURS = 7; // "eux" sont 7h en retard sur "moi"
+  const AWAKE_START = 8 * 60;   // 08:00
+  const AWAKE_END   = 24 * 60;  // 24:00 (minuit)
+
+  function isAwake(minute){
+    return minute >= AWAKE_START && minute < AWAKE_END;
+  }
+  function toTheirMinute(myMinute){
+    return ((myMinute - OFFSET_HOURS * 60) % 1440 + 1440) % 1440;
+  }
+
+  // ---- fenêtre commune (en minutes, référentiel "moi") ----
+  const overlapMe = new Array(1440).fill(false);
+  for(let m = 0; m < 1440; m++){
+    overlapMe[m] = isAwake(m) && isAwake(toTheirMinute(m));
+  }
+  // référentiel "eux"
+  const overlapThem = new Array(1440).fill(false);
+  for(let t = 0; t < 1440; t++){
+    overlapThem[t] = overlapMe[(t + OFFSET_HOURS * 60) % 1440];
+  }
+
+  // ---- extraction de segments contigus depuis un tableau booléen ----
+  function extractSegments(arr){
+    const segs = [];
+    let start = null;
+    for(let i = 0; i < arr.length; i++){
+      if(arr[i] && start === null) start = i;
+      if(!arr[i] && start !== null){ segs.push([start, i]); start = null; }
+    }
+    if(start !== null) segs.push([start, arr.length]);
+    // fusion si le tableau boucle (dernier segment touche le premier)
+    if(segs.length > 1 && segs[0][0] === 0 && segs[segs.length-1][1] === arr.length){
+      const first = segs.shift();
+      const last = segs.pop();
+      segs.push([last[0] - arr.length, first[1]]); // segment négatif->positif, géré à l'angle
+    }
+    return segs;
+  }
+
+  // ---- dessin SVG ----
+  const CX = 100, CY = 100, R = 78;
+  function minuteToAngle(m){ return (m / 1440) * 360 - 90; } // 0 = haut, sens horaire
+  function polar(angleDeg, radius){
+    const rad = angleDeg * Math.PI / 180;
+    return { x: CX + radius * Math.cos(rad), y: CY + radius * Math.sin(rad) };
+  }
+  function describeArc(startMin, endMin){
+    const startAngle = minuteToAngle(((startMin % 1440) + 1440) % 1440);
+    const endAngle = minuteToAngle(((endMin % 1440) + 1440) % 1440);
+    let sweep = endMin - startMin;
+    const large = sweep > 720 ? 1 : 0;
+    const p1 = polar(startAngle, R);
+    const p2 = polar(endAngle, R);
+    return `M ${p1.x} ${p1.y} A ${R} ${R} 0 ${large} 1 ${p2.x} ${p2.y}`;
+  }
+
+  function buildRing(svgEl, ownSegs, overlapSegs){
+    const ns = 'http://www.w3.org/2000/svg';
+    const track = document.createElementNS(ns, 'circle');
+    track.setAttribute('cx', CX); track.setAttribute('cy', CY); track.setAttribute('r', R);
+    track.setAttribute('class', 'ring-track');
+    svgEl.appendChild(track);
+
+    ownSegs.forEach(([s,e]) => {
+      const path = document.createElementNS(ns, 'path');
+      path.setAttribute('d', describeArc(s, e));
+      path.setAttribute('class', 'ring-own');
+      svgEl.appendChild(path);
+    });
+
+    overlapSegs.forEach(([s,e]) => {
+      const path = document.createElementNS(ns, 'path');
+      path.setAttribute('d', describeArc(s, e));
+      path.setAttribute('class', 'ring-overlap');
+      svgEl.appendChild(path);
+    });
+
+    const dot = document.createElementNS(ns, 'circle');
+    dot.setAttribute('r', 5);
+    dot.setAttribute('class', 'now-dot');
+    svgEl.appendChild(dot);
+    return dot;
+  }
+
+  const ringMeEl = document.getElementById('ring-me');
+  const ringThemEl = document.getElementById('ring-them');
+  const ownSegsStatic = extractSegments((() => {
+    const a = new Array(1440).fill(false);
+    for(let i = AWAKE_START; i < AWAKE_END; i++) a[i] = true;
+    return a;
+  })());
+
+  const dotMe = buildRing(ringMeEl, ownSegsStatic, extractSegments(overlapMe));
+  const dotThem = buildRing(ringThemEl, ownSegsStatic, extractSegments(overlapThem));
+
+  const digitalMe = document.getElementById('digital-me');
+  const digitalThem = document.getElementById('digital-them');
+  const statusEl = document.getElementById('status');
+
+  function fmt(minute){
+    const h = Math.floor(minute / 60) % 24;
+    const m = Math.floor(minute % 60);
+    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+  }
+
+  function nextOverlapStart(fromMinute){
+    for(let k = 1; k <= 1440; k++){
+      const idx = (fromMinute + k) % 1440;
+      if(overlapMe[idx]) return k;
+    }
+    return null;
+  }
+
+  function update(){
+    const now = new Date();
+    const myMinute = now.getHours() * 60 + now.getMinutes();
+    const theirMinute = toTheirMinute(myMinute);
+
+    const posMe = polar(minuteToAngle(myMinute), R);
+    dotMe.setAttribute('cx', posMe.x); dotMe.setAttribute('cy', posMe.y);
+    const posThem = polar(minuteToAngle(theirMinute), R);
+    dotThem.setAttribute('cx', posThem.x); dotThem.setAttribute('cy', posThem.y);
+
+    digitalMe.textContent = fmt(myMinute);
+    digitalThem.textContent = fmt(theirMinute);
+
+    if(overlapMe[myMinute]){
+      statusEl.innerHTML = '<span class="gold">✨ Vous êtes dans votre fenêtre commune, maintenant.</span>';
+    } else {
+      const diff = nextOverlapStart(myMinute);
+      const h = Math.floor(diff / 60), m = diff % 60;
+      statusEl.textContent = `Prochaine fenêtre commune dans ${h}h ${String(m).padStart(2,'0')}min`;
+    }
+  }
+
+  update();
+  setInterval(update, 15000);
+
+  // ---- message persistant ----
+  const textarea = document.getElementById('message');
+  const saveIndicator = document.getElementById('save-indicator');
+  const flame = document.getElementById('flame');
+  const STORAGE_KEY = 'fuseau-partage-message';
+
+  try{
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if(saved){
+      textarea.value = saved;
+      flame.classList.add('lit');
+    }
+  } catch(e){}
+
+  let saveTimeout = null;
+  textarea.addEventListener('input', () => {
+    if(saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+      try{ localStorage.setItem(STORAGE_KEY, textarea.value); } catch(e){}
+      saveIndicator.classList.add('show');
+      flame.classList.toggle('lit', textarea.value.trim().length > 0);
+      setTimeout(() => saveIndicator.classList.remove('show'), 1800);
+    }, 500);
+  });
+
+})();
+</script>
+
+</body>
+</html>
